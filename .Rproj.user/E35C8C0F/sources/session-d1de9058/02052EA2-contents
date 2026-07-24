@@ -1,0 +1,48 @@
+---
+title: "Sobre a Autora"
+image: foto-julia.jpeg
+lang: pt
+about:
+  template: jolla
+  links:
+    - icon: linkedin
+      text: LinkedIn
+      href: https://www.linkedin.com/in/julia-nogueira-80b705400
+
+    - icon: github
+      text: Github
+      href: https://github.com/J07nm
+
+    - icon: envelope
+      text: E-mail UFV
+      href: mailto:julia.n.morais@ufv.br
+
+    - icon: envelope-fill
+      text: E-mail Pessoal
+      href: mailto:julia.nogueira2@icloud.com
+
+    # - icon: mortarboard-fill
+    #  text: Lattes
+    #  href: https://lattes.cnpq.br/
+---
+
+## Júlia Nogueira Morais
+
+Graduanda em **Matemática Aplicada e Computacional (ênfase em Ciência de Dados)** na Universidade Federal de Viçosa (UFV), campus Florestal, e pesquisadora voluntária de Iniciação Científica sob orientação do Prof. Guaraci, na área de Estatística e Ciência de Dados aplicada à saúde global.
+
+Desenvolvo investigações na interface entre **Ciência de Dados, Economia da Saúde e Políticas Públicas**, utilizando R e o ecossistema Quarto para transformar dados públicos em análises visuais acessíveis, com inspiração no jornalismo de dados de veículos como *Nexo Jornal*, *The Economist* e *Agência Pública*.
+
+Está aberta a conversas sobre dados, saúde pública e ciência aberta — os contatos estão logo abaixo.
+
+---
+
+::: {.pesquisa-info}
+## Sobre esta pesquisa
+
+Esta reportagem de dados foi desenvolvida como parte das minhas atividades acadêmicas e de Iniciação Científica na UFV.
+
+* **Tema:** O custo da vida: por que a saúde pública universal salva mais do que o mercado
+* **Instituição:** Universidade Federal de Viçosa (UFV)
+* **Base de Dados:** *World Development Indicators* (Banco Mundial)
+* **Tecnologias:** R (`tidyverse`, `ggplot2`, `plotly`), Quarto e CSS/JavaScript customizados
+:::

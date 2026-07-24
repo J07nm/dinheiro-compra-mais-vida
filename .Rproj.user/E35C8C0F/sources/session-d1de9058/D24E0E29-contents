@@ -1,0 +1,249 @@
+/*-- scss:defaults --*/
+$danger: #64b5f6;
+
+/*-- scss:rules --*/
+/* ============================================================
+   Estilo "reportagem" -- versão ESCURA
+   Barra de navegação: fixa, não usa variável, nunca muda de cor à toa
+   ============================================================ */
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.7;
+  color: #e8e6e1;
+  font-size: 1.08rem;
+}
+
+.content {
+  max-width: min(96vw, 1600px) !important;
+  margin-inline: auto !important;
+}
+
+.content > p,
+.content > ul,
+.content > ol,
+.content > blockquote,
+.content .callout,
+.content .lede {
+  max-width: 820px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cell-output-display {
+  max-width: 100%;
+}
+.js-plotly-plot, .plotly {
+  width: 100% !important;
+}
+
+/* --- Barra de navegação estilo masthead -- igual no claro e no escuro --- */
+#quarto-header .navbar,
+.navbar,
+.navbar.fixed-top,
+nav.navbar {
+  background-color: #2b4c7e !important;
+}
+#quarto-header .navbar .navbar-brand,
+#quarto-header .navbar .nav-link,
+.navbar .navbar-brand,
+.navbar .nav-link {
+  color: #ffffff !important;
+}
+/* --- Cabeçalho / masthead do artigo --- */
+#title-block-header {
+  max-width: 820px;
+  margin-left: auto;
+  margin-right: auto;
+  border-bottom: 1px solid #e8e6e1;
+  padding-bottom: 1.2rem;
+  margin-bottom: 2rem;
+}
+.kicker, .quarto-kicker {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #64b5f6 !important;
+  margin-bottom: 0.6rem;
+}
+h1.title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: 2.9rem;
+  line-height: 1.05;
+  letter-spacing: -0.8px;
+  color: #f5f3ee;
+}
+p.subtitle {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-style: italic;
+  color: #b8b5ad;
+  font-size: 1.25rem;
+  margin-top: 0.6rem;
+}
+.quarto-title-meta {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85rem;
+  color: #9a978f;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 1rem;
+}
+.quarto-title-meta-heading {
+  font-weight: 700;
+  color: #d8d5cc;
+}
+
+/* --- Corpo do texto --- */
+h2 {
+  max-width: 820px;
+  margin-left: auto;
+  margin-right: auto;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  border-top: 1px solid #3a3a3a;
+  padding-top: 1.6rem;
+  margin-top: 3rem;
+  color: #f5f3ee;
+}
+h2 + p::first-letter,
+.lede::first-letter {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: 3.6rem;
+  float: left;
+  line-height: 0.85;
+  padding-right: 8px;
+  padding-top: 4px;
+  color: #f5f3ee;
+}
+p {
+  text-align: justify;
+  hyphens: auto;
+}
+a {
+  color: #f5f3ee;
+  text-decoration: underline;
+  text-decoration-color: #64b5f6;
+  text-underline-offset: 2px;
+}
+
+/* --- Callouts --- */
+div.callout {
+  border: none;
+  border-left: 3px solid #64b5f6;
+  background-color: #1e1e1e !important;
+  border-radius: 0;
+  padding: 0.9rem 1.2rem;
+  margin: 1.6rem 0;
+}
+div.callout-note {
+  border-left-color: #64b5f6;
+}
+.callout-title-container {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #64b5f6;
+}
+div.callout p {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.95rem;
+  text-align: left;
+  color: #d8d5cc !important;
+}
+
+/* --- Figuras e legendas --- */
+figcaption,
+.figure-caption,
+.quarto-figure figcaption,
+.quarto-float-caption,
+p.caption,
+caption {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.82rem;
+  color: #9a978f !important;
+  text-align: left;
+  line-height: 1.4;
+  border-top: 1px solid #3a3a3a;
+  padding-top: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+/* --- Eixos e legendas dos gráficos plotly --- */
+.js-plotly-plot .xtick text,
+.js-plotly-plot .ytick text,
+.js-plotly-plot .xtitle,
+.js-plotly-plot .ytitle,
+.js-plotly-plot .g-xtitle text,
+.js-plotly-plot .g-ytitle text,
+.js-plotly-plot .infolayer text,
+.js-plotly-plot .annotation-text,
+.js-plotly-plot g.annotation text,
+.js-plotly-plot .legend text,
+.js-plotly-plot .legendtext {
+  fill: #d8d5cc !important;
+}
+.js-plotly-plot path.xgrid,
+.js-plotly-plot path.ygrid,
+.js-plotly-plot .gridlayer path,
+.js-plotly-plot .gridlayer > g > path {
+  stroke: rgba(255, 255, 255, 0.08) !important;
+  stroke-width: 1px !important;
+}
+
+/* --- TOC --- */
+#TOC {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85rem;
+}
+#TOC .toc-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.78rem;
+  color: #64b5f6;
+}
+
+/* --- Divisor (· · ·) --- */
+.divisor {
+  text-align: center;
+  color: #64b5f6 !important;
+  font-size: 1.4rem;
+  letter-spacing: 1rem;
+  margin: 2.5rem 0;
+}
+
+/* --- "Sobre esta pesquisa" alinhado à esquerda, mesmo com o template jolla --- */
+.pesquisa-info {
+  text-align: left;
+  max-width: 700px;
+  margin: 2rem auto 0;
+}
+.pesquisa-info h2 {
+  text-align: left;
+}
+.pesquisa-info ul,
+.pesquisa-info li {
+  text-align: left;
+}
+/* --- Linha de orientação, estilo igual ao bloco AUTOR/DATA --- */
+.orientacao-meta {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85rem;
+  color: #9a978f;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: -0.8rem;
+  margin-bottom: 2rem;
+}
+.orientacao-meta .heading {
+  display: block;
+  font-weight: 700;
+  color: #d8d5cc;
+}
