@@ -30,6 +30,25 @@ format:
               aspect-ratio: 3 / 4;
             }
           }
+
+          /* Gráfico de expectativa por região: legenda com 7 itens quebra em
+             várias linhas no celular, então esse gráfico específico precisa
+             de uma caixa mais alta que os outros pra não sobrepor o eixo. */
+          @media (max-width: 900px) {
+            .grafico-regiao .plotly.html-widget {
+              aspect-ratio: 4 / 4.1;
+            }
+          }
+          @media (max-width: 600px) {
+            .grafico-regiao .plotly.html-widget {
+              aspect-ratio: 3 / 4.5;
+            }
+          }
+          @media (max-width: 420px) {
+            .grafico-regiao .plotly.html-widget {
+              aspect-ratio: 3 / 4.8;
+            }
+          }
           </style>
 execute:
   echo: false
@@ -113,12 +132,88 @@ paleta_mapa_escuro <- list(
 
 paleta_mapa <- paleta_mapa_claro
 
+
+# ------------------------------------------------------------------
+# Paleta do mapa de EXPECTATIVA (Gráfico 5): coerente com o tema visual
+paleta_ev_claro <- list(
+  list(0,    "#FFF7BC"),
+  list(0.25, "#C7E9B4"),
+  list(0.5,  "#7FCDBB"),
+  list(0.75, "#41B6C4"),
+  list(1,    "#1D91C0")
+)
+
+paleta_ev_escuro <- list(
+  list(0,    "#DBEAFE"),
+  list(0.25, "#93C5FD"),
+  list(0.5,  "#60A5FA"),
+  list(0.75, "#3B82F6"),
+  list(1,    "#2563EB")
+)
+
+paleta_ev <- paleta_ev_claro
+
 # Tema reutilizável: fundo 100% transparente em todos os gráficos ggplot2
 tema_transparente <- theme(
   panel.background      = element_rect(fill = "transparent", colour = NA),
   plot.background       = element_rect(fill = "transparent", colour = NA),
   legend.background     = element_rect(fill = "transparent", colour = NA),
   legend.box.background = element_rect(fill = "transparent", colour = NA)
+)
+
+# ------------------------------------------------------------------
+# CLASSIFICAÇÃO DOS SISTEMAS DE SAÚDE
+# Criação da variável tipo_sistema no dataframe principal
+# Fonte: adaptado de OMS (2010), Reid (2017) e classificações acadêmicas.
+# ------------------------------------------------------------------
+
+sistema_saude <- data.frame(
+  iso3c = c(
+    # Universal (Público) -- modelo Beveridge / NHS / SUS
+    "BRA", "GBR", "CUB", "CAN", "ESP", "ITA", "NOR", "SWE", "DNK", "FIN",
+    "PRT", "GRC", "HRV", "CZE", "EST", "LTU", "LVA", "SVK", "SVN", "HUN",
+    "POL", "AUS", "NZL", "KOR", "THA", "MYS", "LKA", "CRI", "ARG", "MEX",
+    "CHL", "COL", "URY",
+    # Seguro Social (Misto) -- modelo Bismarck + complementar privada
+    "DEU", "FRA", "AUT", "BEL", "NLD", "CHE", "LUX", "ISR", "JPN", "CHN",
+    "IND", "IDN", "PHL", "VNM", "EGY", "IRN", "MAR", "TUN", "ZAF", "BWA",
+    "TUR", "RUS",
+    # Mercado (Privado) -- predomínio do seguro privado / out-of-pocket alto
+    "USA", "SGP", "HKG", "NGA", "PAK", "BGD", "KEN", "ETH", "GHA", "PER",
+    "GTM", "HND", "NIC", "SLV", "DOM", "JAM", "TTO"
+  ),
+  tipo_sistema = c(
+    rep("Universal (Público)", 33),
+    rep("Seguro Social (Misto)", 22),
+    rep("Mercado (Privado)", 17)
+  ),
+  stringsAsFactors = FALSE
+)
+
+# Remove duplicatas e faz o merge com a base principal
+dados <- dados |>
+  left_join(sistema_saude, by = "iso3c") |>
+  mutate(
+    tipo_sistema = case_when(
+      is.na(tipo_sistema) ~ "Não classificado",  # fora da lista manual de 72 países
+      TRUE ~ tipo_sistema
+    ),
+    tipo_sistema = factor(
+      tipo_sistema,
+      levels = c("Universal (Público)", "Seguro Social (Misto)", "Mercado (Privado)", "Não classificado")
+    )
+  )
+
+# Atualiza dados_ano para refletir a nova variável
+dados_ano <- dados |> filter(year == ano_referencia, region != "Aggregates")
+dados_ano <- dados_ano |> mutate(region = factor(region, levels = ordem_regioes))
+
+# Definição das formas geométricas para cada tipo de sistema
+shapes_sistema <- c(
+  "Universal (Público)"     = 16,   # círculo sólido
+  "Seguro Social (Misto)"   = 17,   # triângulo sólido
+  "Mercado (Privado)"       = 15,   # quadrado sólido
+  "Não classificado"        = 1     # círculo vazio
 )
 ```
 
@@ -210,10 +305,11 @@ cat(sprintf(
         gd.__coresOriginais = capturarOriginal(gd);
       }
       const originais = gd.__coresOriginais;
+      const corTexto = escuro ? "#d8d5cc" : "#2c2c2c";
+
       // NOVO --- cor da grade e dos títulos/eixos, ajustada ao tema
       if (gd.layout && gd.layout.xaxis) {
         const corGrade = escuro ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)";
-        const corTexto = escuro ? "#d8d5cc" : "#2c2c2c";
         Plotly.relayout(gd, {
           "xaxis.gridcolor": corGrade,
           "yaxis.gridcolor": corGrade,
@@ -243,7 +339,18 @@ cat(sprintf(
           updates["line.color"] = corParaTema(orig.line, escuro);
         }
         if (orig.textfont !== undefined) {
-          updates["textfont.color"] = corParaTema(orig.textfont, escuro);
+          // Rótulos com cor fixa (ex.: os números "80.2", "78.4" do gráfico
+          // de regiões, pintados de propósito com #2c3e50 no R) não fazem
+          // parte da paleta de regiões, então corParaTema não sabe trocá-los.
+          // O ggplotly converte essa cor pra formato "rgba(44,62,80,1)", não
+          // "#2c3e50" -- por isso usamos decompor() pra extrair o hex real
+          // antes de comparar, em vez de comparar a string bruta.
+          const infoTextfont = decompor(orig.textfont);
+          if (infoTextfont && infoTextfont.hex === "#2C3E50") {
+            updates["textfont.color"] = corTexto;
+          } else {
+            updates["textfont.color"] = corParaTema(orig.textfont, escuro);
+          }
         }
 
         if (Object.keys(updates).length > 0) {
@@ -261,22 +368,56 @@ cat(sprintf(
     });
   }
 
+  // Ajusta margem/fonte da legenda SÓ do gráfico "expectativa por região"
+  // (o único com legenda horizontal de 7 itens, que quebra em várias linhas
+  // em telas estreitas e precisa de mais espaço embaixo pra não sobrepor
+  // o título do eixo).
+  function ajustarLegendaRegiao() {
+    const gd = document.querySelector(".grafico-regiao .plotly.html-widget");
+    if (!gd || !window.Plotly || !gd.data) return;
+
+    const largura = window.innerWidth;
+    let ajuste;
+
+    if (largura <= 420) {
+      ajuste = { margin: { l: 15, r: 55, t: 15, b: 175 }, fonteLegenda: 10, yLegenda: -0.40 };
+    } else if (largura <= 600) {
+      ajuste = { margin: { l: 15, r: 65, t: 15, b: 150 }, fonteLegenda: 11, yLegenda: -0.32 };
+    } else if (largura <= 900) {
+      ajuste = { margin: { l: 15, r: 70, t: 15, b: 125 }, fonteLegenda: 12, yLegenda: -0.26 };
+    } else {
+      ajuste = { margin: { l: 15, r: 75, t: 15, b: 110 }, fonteLegenda: 14, yLegenda: -0.22 };
+    }
+
+    Plotly.relayout(gd, {
+      margin: ajuste.margin,
+      "legend.font.size": ajuste.fonteLegenda,
+      "legend.y": ajuste.yLegenda
+    });
+  }
+
   window.addEventListener("load", function () {
     aplicarPaletaNosGraficos();
     redimensionarGraficos();
+    ajustarLegendaRegiao();
+    setTimeout(ajustarLegendaRegiao, 300);
     setTimeout(redimensionarGraficos, 300);
     setTimeout(redimensionarGraficos, 1000);
 
     const observer = new MutationObserver(function () {
       aplicarPaletaNosGraficos();
       redimensionarGraficos();
+      ajustarLegendaRegiao();
     });
     observer.observe(document.body, {
       attributes: true,
       attributeFilter: ["class"]
     });
 
-    window.addEventListener("resize", redimensionarGraficos);
+    window.addEventListener("resize", function () {
+      redimensionarGraficos();
+      ajustarLegendaRegiao();
+    });
   });
   </script>',
   toJSON(as.list(cores_claro), auto_unbox = TRUE),
@@ -290,14 +431,13 @@ Análise de Dados · Saúde Global
 
 ## Viver mais é um direito ou um mercado?
 
-Em `r ano_referencia`, um recém-nascido em Serra Leoa podia esperar viver cerca de 30 anos a menos do que uma criança nascida no Japão. No entanto, essa abissal diferença global na expectativa de vida não se resume à renda bruta de uma nação ou à riqueza individual de seus cidadãos: ela reflete, acima de tudo, a escolha política de garantir a saúde como um direito humano universal ou de tratá-la como uma mercadoria.
+Em `r ano_referencia`, um recém-nascido em Serra Leoa podia esperar viver em média cerca de 23 anos a menos do que uma criança nascida no Japão (61 contra 84 anos, segundo o Banco Mundial). Essa disparidade, documentada pelo Banco Mundial e corroborada por estimativas da Organização Mundial da Saúde (OMS), não se resume à renda bruta de uma nação ou à riqueza individual de seus cidadãos: ela reflete, acima de tudo, a escolha política de garantir a saúde como um direito humano universal ou de tratá-la como uma mercadoria.
 
-A partir de dados do Banco Mundial (World Development Indicators), esta investigação analisa a relação entre o investimento em saúde por habitante, a longevidade e a mortalidade em `r nrow(dados_ano |> filter(!is.na(gasto_saude_percap), !is.na(expectativa_vida)))` países. O objetivo é responder a uma provocação central: até que ponto o dinheiro compra tempo de vida e por que os sistemas públicos e universais entregam retornos sociais muito superiores aos modelos privados?
+A partir de dados do Banco Mundial (World Development Indicators), esta investigação analisa a relação entre o investimento em saúde por habitante, a longevidade e a mortalidade em `r nrow(dados_ano |> filter(!is.na(gasto_saude_percap), !is.na(expectativa_vida)))` países. O objetivo é responder a uma provocação central: até que ponto o dinheiro compra tempo de vida e por que países com gasto semelhante obtêm resultados tão diferentes, inclusive quando organizam o financiamento de formas distintas?
 
 ```{r}
-
 #| label: fig-gasto-expectativa
-#| fig-cap: !expr paste0("Gasto em saúde per capita (US$ PPP, escala log) x expectativa de vida ao nascer, ", ano_referencia, ". Cada ponto é um país; a linha mostra a tendência geral.")
+#| fig-cap: "Gasto em saúde per capita (US$ PPP, escala log) x expectativa de vida ao nascer, 2022. Formas: ● Universal (Público), ▲ Seguro Social (Misto), ■ Mercado (Privado), ○ Não classificado (fora da lista manual de 72 países)."
 #| out.width: "100%"
 
 # 1. Garante que a tabela de alinhamento dos 4 países está criada corretamente
@@ -347,16 +487,22 @@ destaque_g1 <- dados_g1 |>
 g1 <- ggplot(
   dados_g1,
   aes(
-    x = gasto_saude_percap, y = expectativa_vida, color = region,
+    x = gasto_saude_percap, 
+    y = expectativa_vida, 
+    color = region,
+    shape = tipo_sistema,
     text = paste(
-      "País:", country_pt, "\nRegião:", region,
+      "País:", country_pt, 
+      "\nRegião:", region,
+      "\nSistema:", tipo_sistema,
       "\nGasto:", round(gasto_saude_percap, 1), "US$",
       "\nExpectativa:", round(expectativa_vida, 1), "anos"
     )
   )
 ) +
-  geom_point(alpha = 0.7, size = 2.5) +
+  geom_point(alpha = 0.75, size = 2.8, stroke = 0.8, show.legend = FALSE) +
   scale_color_manual(values = cores) +
+  scale_shape_manual(values = shapes_sistema) +
   scale_x_log10(
     breaks = c(50, 100, 200, 500, 1000, 2000, 5000, 10000),
     labels = comma
@@ -371,7 +517,7 @@ g1 <- ggplot(
   geom_segment(
     data = destaque_g1,
     aes(x = x_linha, y = y_linha, xend = gasto_saude_percap, yend = expectativa_vida, color = region),
-    inherit.aes = FALSE, alpha = 0.5, size = 0.5, show.legend = FALSE
+    inherit.aes = FALSE, alpha = 0.5, linewidth = 0.5, show.legend = FALSE
   ) +
 
   # Nomes dos países flutuando nas zonas limpas (também com a cor combinando)
@@ -385,8 +531,10 @@ g1 <- ggplot(
     y = "Expectativa de vida (anos)",
     caption = "Fonte: World Bank -- World Development Indicators"
   ) +
-  theme_minimal(base_size = 13) +
-  theme(legend.position = "bottom", legend.title = element_blank()) +
+      theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "none"
+  ) +
   tema_transparente
 
 ggplotly(g1, tooltip = "text", height = 520) |>
@@ -411,24 +559,24 @@ ggsave(
 )
 ```
 
-A trajetória da longevidade global não desenha uma reta contínua, mas uma curva logarítmica acentuada. Os primeiros investimentos em saúde pública — saneamento, vacinação e atenção básica — proporcionam saltos gigantescos na expectativa de vida a custos relativamente baixos. Contudo, após certo patamar financeiro, a curva desacelera.
+A trajetória da longevidade global desenha uma relação de **ganhos marginais decrescentes**, padrão que também aparece em estudos sobre países da OCDE (Morina et al., 2022): no meu modelo, cada vez que o gasto por habitante é multiplicado por dez, a expectativa de vida sobe cerca de 10 anos, e essa relação explica 71% da variação observada. Esse padrão lembra a chamada curva de Preston (Preston, 1975), que relaciona longevidade e renda, e o debate sobre os determinantes da mortalidade em Cutler, Deaton e Lleras-Muney ([2006](https://www.aeaweb.org/articles?id=10.1257/jep.20.3.97)), que destacam o papel do progresso científico e tecnológico. Pense assim: um país que gasta 50 dólares por habitante em saúde atinge, em média, cerca de 60 anos de expectativa de vida. Se multiplicar esse investimento por dez — indo para 500 dólares —, a expectativa sobe para aproximadamente 70 anos. Mas, se multiplicar por cem — chegando a 5.000 dólares —, o ganho não é proporcional: a expectativa vai para cerca de 80 anos. Em outras palavras, os primeiros dólares investidos em saneamento, vacinação e atenção básica são os mais eficientes; depois, cada novo dólar compra menos tempo de vida. Isso é o que se chama de retornos decrescentes: a partir de certo patamar, o dinheiro extra compra ganhos cada vez menores.
 
-A grande questão revelada pelos dados é: quem se beneficia desses investimentos? Quando a saúde é estruturada como um bem público universal, cada dólar investido é otimizado para salvar vidas. Quando o sistema é guiado pelo lucro, somas astronômicas são consumidas por despesas administrativas e margens privadas, sem se traduzir em ganhos equivalentes de vida para a população.
+A grande questão revelada pelos dados é: quem se beneficia desses investimentos? Quando a saúde é estruturada como um bem público universal, o acesso tende a ser mais amplo e o dinheiro tende a render mais em anos de vida. Em sistemas guiados pelo mercado, parte relevante dos recursos pode ser consumida por custos administrativos e margens privadas, o que pode reduzir o retorno em anos de vida.
 
 ::: {.callout-note title="Brasil: A Vitória do Acesso Universal (SUS)"}
-Com o Sistema Único de Saúde (SUS), o Brasil realiza o feito histórico de garantir atenção integral a mais de 200 milhões de cidadãos. Mesmo enfrentando um subfinanciamento estrutural sistemático, o país se posiciona exatamente sobre a linha de tendência global, provando que um modelo 100% público, gratuito e universal é capaz de entregar alta eficiência social e equidade, cobrindo da vacinação primária a transplantes complexos.
+O Sistema Único de Saúde (SUS) representa um dos maiores avanços de justiça social do país, garantindo atenção integral a mais de 200 milhões de cidadãos. Mesmo sob subfinanciamento crônico, o modelo público e universal posiciona o Brasil sobre a linha de tendência global, sugerindo eficiência social relativa quando comparado a sistemas de custo muito superior ([Paim et al., 2011](https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(11)60054-8/fulltext)).
 :::
 
 ::: {.callout-note title="Estados Unidos: A Ineficiência do Mercado"}
-Sendo a nação que mais gasta em saúde per capita no planeta, os EUA figuram bem abaixo da linha de tendência esperada para o seu nível de investimento. O predomínio do modelo privado fragmentado inflaciona os custos de medicamentos e procedimentos, gera burocracia excessiva e exclui dezenas de milhões de pessoas da cobertura básica, demonstrando que gastar muito não significa proteger a população.
+Sendo a nação que mais gasta em saúde per capita no planeta, os EUA figuram bem abaixo da linha de tendência esperada para o seu nível de investimento. O predomínio do modelo privado fragmentado inflaciona os custos de medicamentos e procedimentos, gera burocracia excessiva e exclui dezenas de milhões de pessoas da cobertura básica, sugerindo que gastar muito não basta para proteger a população (Reid, 2010).
 :::
 
 ::: {.callout-note title="China: Expansão do Estado na Proteção Social"}
-Nas últimas décadas, a China promoveu reformas massivas para reconstruir seu sistema de proteção social, expandindo o seguro básico de saúde público para mais de 95% de seus habitantes. Essa forte presença estatal impulsionou a expectativa de vida do país para patamares comparáveis aos de economias desenvolvidas.
+Nas últimas décadas, a China promoveu reformas massivas para reconstruir seu sistema de proteção social, expandindo o seguro básico de saúde pública para mais de 95% de seus habitantes. Em paralelo, a expectativa de vida do país chegou a patamares comparáveis aos de economias desenvolvidas. A cobertura acima de 95% é dado oficial ([Commonwealth Fund, 2026](https://www.commonwealthfund.org/sites/default/files/2026-04/2026_Country-Profiles_China.pdf)).
 :::
 
 ::: {.callout-note title="Cuba: A Atenção Primária Como Pilar Estatal"}
-Apesar das severas restrições econômicas e do baixo PIB per capita, Cuba atinge marcas de longevidade equivalentes às dos países mais ricos do mundo. O resultado demonstra a força de uma rede de saúde totalmente pública, preventiva e com forte inserção comunitária.
+Apesar das severas restrições econômicas e do baixo PIB per capita, Cuba atinge marcas de longevidade equivalentes às dos países mais ricos do mundo. O resultado demonstra a força de uma rede de saúde totalmente pública, preventiva e com forte inserção comunitária ([Morais & Santos, 2015](https://www.academia.edu/20295464/Brasil_e_Cuba_sistemas_de_sa%C3%BAde_sob_a_an%C3%A1lise_comparada)). *Nota: dados de saúde cubanos são frequentemente questionados na literatura internacional por não permitirem auditoria estatística independente; a análise aqui considera os valores oficiais reportados ao Banco Mundial e à OMS, mas o leitor deve interpretá-los com cautela metodológica.*
 :::
 
 ::: divisor
@@ -437,13 +585,13 @@ Apesar das severas restrições econômicas e do baixo PIB per capita, Cuba atin
 
 ## Duas faces da mesma moeda: do nascimento ao envelhecimento
 
-Quando olhamos para a curva ascendente da longevidade (Gráfico 1) e para a queda acentuada da mortalidade infantil (Gráfico 2), fica evidente que os dois gráficos se completam de forma direta. Eles contam a mesma história sob ângulos complementares: o aumento da esperança de vida no topo é o resultado direto do combate às mortes precoces na base. Nenhum país consegue oferecer uma vida longa à sua população adulta se, primeiro, não garantir que suas crianças sobrevivam ao primeiro ano de vida.
+Quando olhamos para a curva ascendente da longevidade (Figura 1) e para a queda acentuada da mortalidade infantil (Figura 2), fica evidente que os dois gráficos se completam de forma direta. Eles contam a mesma história sob ângulos complementares: o aumento da esperança de vida no topo é o resultado direto do combate às mortes precoces na base. Nenhum país consegue oferecer uma vida longa à sua população adulta se, primeiro, não garantir que suas crianças sobrevivam ao primeiro ano de vida. Vale lembrar que essa ligação é em parte aritmética, já que a mortalidade infantil entra no cálculo da expectativa de vida.
 
 Enquanto a expectativa de vida exige décadas para acumular ganhos significativos, a mortalidade infantil despenca rapidamente com os primeiros investimentos em saúde pública. Salvar recém-nascidos de diarreias, pneumonias e infecções evitáveis não exige tecnologias hospitalares caras e privadas, mas sim o arroz com feijão da saúde pública: água tratada, pré-natal, acompanhamento familiar e vacina no braço. É essa base sólida, foco principal de sistemas universais como o SUS, que "destrava" o indicador e impulsiona a expectativa de vida do país para patamares elevados.
 
 ```{r}
 #| label: fig-pib-mortalidade
-#| fig-cap: "Gasto em saúde per capita (US$ PPP) x Taxa de mortalidade infantil, 2022."
+#| fig-cap: "Gasto em saúde per capita (US$ PPP) x Taxa de mortalidade infantil, 2022. Formas: ● Universal (Público), ▲ Seguro Social (Misto), ■ Mercado (Privado), ○ Não classificado (fora da lista manual de 72 países)."
 #| out.width: "100%"
 
 library(ggrepel)
@@ -496,16 +644,22 @@ destaque_g3 <- dados_g3 |>
 g3 <- ggplot(
   dados_g3,
   aes(
-    x = gasto_saude_percap, y = mortalidade_infantil, color = region,
+    x = gasto_saude_percap, 
+    y = mortalidade_infantil, 
+    color = region,
+    shape = tipo_sistema,
     text = paste(
-      "País:", country_pt, "\nRegião:", region,
+      "País:", country_pt, 
+      "\nRegião:", region,
+      "\nSistema:", tipo_sistema,
       "\nGasto:", round(gasto_saude_percap, 1), "US$",
       "\nMortalidade:", round(mortalidade_infantil, 1), "por 1.000"
     )
   )
 ) +
-  geom_point(alpha = 0.7, size = 2.5, show.legend = FALSE) +
+  geom_point(alpha = 0.75, size = 2.8, stroke = 0.8, show.legend = FALSE) +
   scale_color_manual(values = cores) +
+  scale_shape_manual(values = shapes_sistema) +
   scale_x_log10(labels = comma) +
   scale_y_log10() +
   geom_smooth(
@@ -516,16 +670,17 @@ g3 <- ggplot(
   geom_segment(
     data = destaque_g3,
     aes(x = x_linha, y = y_linha, xend = gasto_saude_percap, yend = mortalidade_infantil, color = region),
-    inherit.aes = FALSE, alpha = 0.5, size = 0.5, show.legend = FALSE
+    inherit.aes = FALSE, alpha = 0.5, linewidth = 0.5, show.legend = FALSE
   ) +
   geom_text(
     data = destaque_g3,
     aes(x = x_txt, y = y_txt, label = label_grafico, color = region),
     inherit.aes = FALSE, fontface = "bold", size = 3.8, show.legend = FALSE
   ) +
-  labs(
+    labs(
     x = "Gasto em saúde per capita (US$ PPP) -- escala log",
-    y = "Mortalidade infantil (por 1.000 nascidos vivos) -- escala log"
+    y = "Mortalidade infantil (por 1.000 nascidos vivos) -- escala log",
+    caption = "Fonte: World Bank -- WDI. Classificação de sistemas: adaptado de OMS (2010) e Reid (2017)."
   ) +
   theme_minimal(base_size = 14, base_family = "sans") +
   theme(
@@ -562,12 +717,12 @@ ggsave(
 
 ## A geopolítica do envelhecimento
 
-A análise regional explicita a brutal desigualdade global nas condições de sobrevivência. Enquanto os países da América do Norte e da Europa desfrutam de redes consolidadas de bem-estar social e envelhecimento protegido, regiões submetidas a crises de financiamento e desmonte estatal sofrem com a perda prematura de vidas.
+A análise regional explicita a brutal desigualdade global nas condições de sobrevivência. Enquanto os países da América do Norte e da Europa desfrutam de redes consolidadas de bem-estar social e envelhecimento protegido, regiões com menor renda e menos investimento em saúde ainda sofrem com a perda prematura de vidas.
 
+::: {.grafico-regiao}
 ```{r}
-
 #| label: fig-expectativa-regiao
-#| fig-cap: !expr paste0("Expectativa de vida média por região do mundo, ", ano_referencia, ".")
+#| fig-cap: "Expectativa de vida média ao nascer por região, 2022."
 #| out.width: "100%"
 
 
@@ -641,14 +796,15 @@ ggsave(
 )
 
 ```
+:::
 
 ::: divisor
 · · ·
 :::
 
-## O mapa da desigualdade em saúde
+## O mapa da desigualdade: investimento e longevidade
 
-O mapa global de investimentos reflete diretamente as escolhas macroeconômicas de cada nação. A disparidade de tons evidencia como o financiamento da saúde se concentra no Norte Global, mas a verdadeira diferença está na forma como esse montante é gerido.
+O mapa global de investimentos reflete diretamente as escolhas macroeconômicas de cada nação. A disparidade de tons evidencia como o financiamento da saúde se concentra no Norte Global, mas a verdadeira diferença está na forma como esse montante é gerido. Em um extremo, modelos mercadológicos, como o norte-americano, podem transformar cuidados médicos em riscos de falência pessoal. Nos Estados Unidos, uma pesquisa com pessoas que declararam falência entre 2013 e 2016 encontrou que 66,5% citaram problemas médicos, como contas ou perda de renda por doença, como contribuintes ([Himmelstein et al., 2019](https://doi.org/10.2105/AJPH.2018.304901)). No outro, países em desenvolvimento que apostam na saúde como política pública e de acesso universal, como o Brasil, parecem conseguir estender o tempo de vida de sua população, mesmo com renda limitada.
 
 ```{r}
 #| label: fig-mapa-mundi
@@ -692,10 +848,59 @@ mapa_g4 <- plot_geo(dados_mapa, height = 500) |>
 mapa_g4
 ```
 
-Em um extremo, modelos mercadológicos, como o norte-americano, transformam cuidados médicos em riscos de falência pessoal. No outro, países em desenvolvimento que apostam na saúde como política pública e de acesso universal, como o Brasil, conseguem romper a barreira do subdesenvolvimento social para estender o tempo de vida de sua população.
+Se o mapa anterior mostra onde o dinheiro em saúde está, o mapa abaixo mostra onde a vida está. A distribuição da expectativa de vida ao nascer desenha um mundo profundamente desigual: enquanto nações do Norte Global consolidam longevidades próximas dos 80 anos, grande parte da África Subsaariana e do Sul da Ásia ainda luta para superar os 65. O contraste não é acidental: ele acompanha décadas de diferenças de investimento em saúde e de acesso a políticas públicas.
+
+```{r}
+#| label: fig-mapa-expectativa
+#| fig-cap: !expr paste0("Expectativa de vida ao nascer (anos) por país, ", ano_referencia, ".")
+#| out.width: "100%"
+
+dados_mapa_ev <- dados_ano |>
+  filter(!is.na(expectativa_vida), !is.na(iso3c), iso3c != "")
+
+mapa_g5 <- plot_geo(dados_mapa_ev, height = 500) |>
+  add_trace(
+    type = "choropleth",
+    z = ~expectativa_vida,
+    colorscale = paleta_ev,
+    reversescale = FALSE,
+    zmin = 50,
+    zmax = 85,
+    locations = ~iso3c,
+    text = ~paste0(
+      country_pt, "<br>", round(expectativa_vida, 1), " anos"
+    ),
+    hoverinfo = "text",
+    marker = list(line = list(color = "white", width = 0.4))
+  ) |>
+  colorbar(title = "Anos", bgcolor = "rgba(0,0,0,0)") |>
+  layout(
+    autosize = TRUE,
+    geo = list(
+      showframe = FALSE,
+      showcoastlines = FALSE,
+      projection = list(type = "natural earth"),
+      bgcolor = "rgba(0,0,0,0)"
+    ),
+    margin = list(l = 0, r = 0, t = 10, b = 0),
+    paper_bgcolor = "rgba(0,0,0,0)",
+    plot_bgcolor  = "rgba(0,0,0,0)"
+  ) |>
+  config(responsive = TRUE)
+
+mapa_g5
+```
+
+::: {.callout-note title="Nota metodológica"}
+Esta é uma análise descritiva e exploratória, sem modelagem inferencial: o modelo log-linear explica 71% da variação da expectativa de vida, e as linhas de tendência mostram associação, não causa e efeito. A classificação dos sistemas em universal, seguro social e mercado foi feita manualmente para 72 países, adaptada da OMS (2010) e de Reid; os demais (a maioria da base) aparecem como "não classificado", e as formas dos pontos devem ser lidas como ilustração. Parte dos dados é reportada pelos governos, e a mortalidade infantil e a expectativa de vida não são medidas independentes.
+:::
 
 ## Conclusão: A saúde pública como direito inalienável
 
-Os dados examinados nesta investigação apontam para uma conclusão inequívoca: o investimento em saúde pública e universal não é um gasto financeiro, mas o mecanismo mais poderoso de redistribuição de renda e justiça social que uma sociedade pode construir.
+Os dados examinados nesta investigação sugerem que o investimento em saúde pública e universal está associado a melhores resultados de longevidade e merece ser visto como política de proteção social, e não apenas como gasto financeiro. Embora o volume de recursos seja importante, a forma de organizá-los e distribuí-los também importa: entre países com gasto per capita parecido, encontrei diferenças de quase 20 anos de expectativa de vida. O modelo de financiamento pesa, mas não determina sozinho o resultado: há países de gasto alto com resultados aquém do esperado e países de gasto moderado acima do esperado. No Brasil, a garantia estatal representada pelo SUS ajuda a impedir que a longevidade seja um privilégio dos mais abastados.
 
-Embora o volume de recursos seja importante, a sua orientação ideológica e operacional é determinante. O mercado provou ser incapaz de distribuir cuidados médicos de forma justa ou eficiente. É a garantia estatal, representada no Brasil pelo SUS, que impede que a longevidade seja um privilégio dos mais abastados. Proteger, financiar e fortalecer a saúde pública gratuita é o único caminho comprovado para que o direito à vida não dependa da capacidade de pagamento de cada cidadão.
+Mas uma pergunta incômoda persiste: **mesmo com o SUS, por que a desigualdade persiste? Por que pobres vivem menos e ricos vivem mais?**
+
+A resposta não está no sistema de saúde em si, mas na estrutura econômica que o cerca. A saúde universal é um **escudo**, não uma solução mágica. Ela mitiga os efeitos da desigualdade, mas não elimina suas causas. A distinção entre um "Brasil oficial" e um "Brasil real", cara a Ariano Suassuna, ajuda a entender esse quadro: no Brasil, pessoas em situação de pobreza extrema, moradores de periferias sem saneamento, trabalhadores expostos a riscos ambientais e populações negras e indígenas ainda enfrentam barreiras estruturais que o atendimento médico sozinho não derruba ([Neri, 2002](https://www.scielo.br/j/csp); [Ferreira Junior et al., 2013](https://periodicos.ufjf.br/index.php/aps)). O SUS garante o direito à consulta, mas não garante que o paciente chegue ao posto de saúde alimentado, com transporte público funcionando e sem medo da violência no caminho.
+
+Proteger, financiar e fortalecer a saúde pública gratuita é um caminho central para que o direito à vida não dependa da capacidade de pagamento de cada cidadão. Mas a longevidade plena exige mais: exige que o Estado atue simultaneamente sobre os determinantes sociais da saúde — moradia digna, alimentação, saneamento, educação de qualidade e redução da violência — sem os quais até o sistema público mais robusto do mundo segue lutando contra um rio de desigualdade que nasce muito antes da porta do hospital.
